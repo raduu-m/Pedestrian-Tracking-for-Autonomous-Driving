@@ -1,11 +1,4 @@
 # vim: expandtab:ts=4:sw=4
-"""
-Bloom Filter implementation for Deep SORT pedestrian tracking.
-
-This module provides a Bloom filter optimized for storing feature vectors
-and detection hashes to improve tracking performance and reduce memory usage.
-"""
-
 import numpy as np
 import hashlib
 from typing import List, Tuple, Optional
@@ -15,9 +8,6 @@ import math
 class BloomFilter:
     """
     A Bloom filter implementation optimized for Deep SORT tracking.
-    
-    This Bloom filter can store feature vectors, detection hashes, and other
-    tracking-related data with configurable false positive rates.
     
     Parameters
     ----------
