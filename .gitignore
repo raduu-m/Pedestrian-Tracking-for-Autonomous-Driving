@@ -87,3 +87,7 @@ ENV/
 
 # Rope project settings
 .ropeproject
+
+test_bloom_filter.py
+bloom_filter_demo.py
+BLOOM_FILTER_README.md

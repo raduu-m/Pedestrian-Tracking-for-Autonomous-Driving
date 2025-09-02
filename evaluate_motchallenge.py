@@ -35,6 +35,15 @@ def parse_args():
     parser.add_argument(
         "--nn_budget", help="Maximum size of the appearance descriptors "
         "gallery. If None, no budget is enforced.", type=int, default=100)
+    parser.add_argument(
+        "--use_bloom_filter", help="Enable Bloom filter for tracking optimization",
+        action="store_true", default=True)
+    parser.add_argument(
+        "--expected_tracks", help="Expected number of tracks for Bloom filter sizing",
+        type=int, default=1000)
+    parser.add_argument(
+        "--bloom_false_positive_rate", help="Bloom filter false positive rate",
+        type=float, default=0.01)
     return parser.parse_args()
 
 
@@ -51,4 +60,7 @@ if __name__ == "__main__":
         deep_sort_app.run(
             sequence_dir, detection_file, output_file, args.min_confidence,
             args.nms_max_overlap, args.min_detection_height,
-            args.max_cosine_distance, args.nn_budget, display=False)
+            args.max_cosine_distance, args.nn_budget, display=False,
+            use_bloom_filter=args.use_bloom_filter,
+            expected_tracks=args.expected_tracks,
+            bloom_false_positive_rate=args.bloom_false_positive_rate)

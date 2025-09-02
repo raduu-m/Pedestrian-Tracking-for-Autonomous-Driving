@@ -128,7 +128,8 @@ def create_detections(detection_mat, frame_idx, min_height=0):
 
 def run(sequence_dir, detection_file, output_file, min_confidence,
         nms_max_overlap, min_detection_height, max_cosine_distance,
-        nn_budget, display):
+        nn_budget, display, use_bloom_filter=True, expected_tracks=1000,
+        bloom_false_positive_rate=0.01):
     """Run multi-target tracker on a particular sequence.
 
     Parameters
@@ -155,12 +156,20 @@ def run(sequence_dir, detection_file, output_file, min_confidence,
         is enforced.
     display : bool
         If True, show visualization of intermediate tracking results.
+    use_bloom_filter : bool
+        If True, enable Bloom filter for tracking optimization.
+    expected_tracks : int
+        Expected number of tracks for Bloom filter sizing.
+    bloom_false_positive_rate : float
+        Bloom filter false positive rate (0.0 to 1.0).
 
     """
     seq_info = gather_sequence_info(sequence_dir, detection_file)
     metric = nn_matching.NearestNeighborDistanceMetric(
         "cosine", max_cosine_distance, nn_budget)
-    tracker = Tracker(metric)
+    tracker = Tracker(metric, use_bloom_filter=use_bloom_filter,
+                     expected_tracks=expected_tracks,
+                     bloom_false_positive_rate=bloom_false_positive_rate)
     results = []
 
     def frame_callback(vis, frame_idx):
@@ -210,6 +219,17 @@ def run(sequence_dir, detection_file, output_file, min_confidence,
     for row in results:
         print('%d,%d,%.2f,%.2f,%.2f,%.2f,1,-1,-1,-1' % (
             row[0], row[1], row[2], row[3], row[4], row[5]),file=f)
+    
+    # Print Bloom filter statistics if enabled
+    if use_bloom_filter:
+        stats = tracker.get_bloom_filter_stats()
+        if stats:
+            print(f"\nBloom Filter Statistics:")
+            print(f"  Feature Filter: {stats['feature_filter']['element_count']} elements, "
+                  f"{stats['feature_filter']['memory_usage']} bytes")
+            print(f"  Track ID Filter: {stats['track_id_filter']['element_count']} elements, "
+                  f"{stats['track_id_filter']['memory_usage']} bytes")
+            print(f"  False Positive Rate: {stats['feature_filter']['false_positive_rate']:.6f}")
 
 
 def bool_string(input_string):
@@ -252,6 +272,15 @@ def parse_args():
     parser.add_argument(
         "--display", help="Show intermediate tracking results",
         default=True, type=bool_string)
+    parser.add_argument(
+        "--use_bloom_filter", help="Enable Bloom filter for tracking optimization",
+        action="store_true", default=True)
+    parser.add_argument(
+        "--expected_tracks", help="Expected number of tracks for Bloom filter sizing",
+        type=int, default=1000)
+    parser.add_argument(
+        "--bloom_false_positive_rate", help="Bloom filter false positive rate",
+        type=float, default=0.01)
     return parser.parse_args()
 
 
@@ -260,4 +289,6 @@ if __name__ == "__main__":
     run(
         args.sequence_dir, args.detection_file, args.output_file,
         args.min_confidence, args.nms_max_overlap, args.min_detection_height,
-        args.max_cosine_distance, args.nn_budget, args.display)
+        args.max_cosine_distance, args.nn_budget, args.display,
+        use_bloom_filter=args.use_bloom_filter, expected_tracks=args.expected_tracks,
+        bloom_false_positive_rate=args.bloom_false_positive_rate)

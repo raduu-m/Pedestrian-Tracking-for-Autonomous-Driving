@@ -5,6 +5,7 @@ from . import kalman_filter
 from . import linear_assignment
 from . import iou_matching
 from .track import Track
+from .bloom_filter import TrackingBloomFilter
 
 
 class Tracker:
@@ -37,15 +38,27 @@ class Tracker:
 
     """
 
-    def __init__(self, metric, max_iou_distance=0.7, max_age=30, n_init=3):
+    def __init__(self, metric, max_iou_distance=0.7, max_age=30, n_init=3, 
+                 use_bloom_filter=True, expected_tracks=1000, bloom_false_positive_rate=0.01):
         self.metric = metric
         self.max_iou_distance = max_iou_distance
         self.max_age = max_age
         self.n_init = n_init
+        self.use_bloom_filter = use_bloom_filter
 
         self.kf = kalman_filter.KalmanFilter()
         self.tracks = []
         self._next_id = 1
+        
+        # Bloom filter 
+        if self.use_bloom_filter:
+            self.bloom_filter = TrackingBloomFilter(
+                expected_tracks=expected_tracks,
+                false_positive_rate=bloom_false_positive_rate,
+                feature_dim=128  # Default Deep SORT feature dimension
+            )
+        else:
+            self.bloom_filter = None
 
     def predict(self):
         """Propagate track state distributions one time step forward.
@@ -86,9 +99,26 @@ class Tracker:
                 continue
             features += track.features
             targets += [track.track_id for _ in track.features]
+            
+            # Add features to Bloom filter for future duplicate detection
+            if self.use_bloom_filter and track.features:
+                self.bloom_filter.add_track_features(track.track_id, track.features)
+            
             track.features = []
         self.metric.partial_fit(
             np.asarray(features), np.asarray(targets), active_targets)
+    
+    def get_bloom_filter_stats(self):
+        """Get statistics about the Bloom filter performance."""
+        if self.bloom_filter is None:
+            return None
+        return self.bloom_filter.get_stats()
+    
+    def is_feature_known(self, feature):
+        """Check if a feature has been seen before using Bloom filter."""
+        if self.bloom_filter is None:
+            return False
+        return self.bloom_filter.is_feature_known(feature)
 
     def _match(self, detections):
 
